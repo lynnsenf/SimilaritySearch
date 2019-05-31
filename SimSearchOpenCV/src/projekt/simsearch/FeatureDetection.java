@@ -1,5 +1,7 @@
 package projekt.simsearch;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -24,14 +26,14 @@ public class FeatureDetection {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		
 		//imports images, converts to matrix
-		String img1 = "D:/Sara/redroses.jpg";
-		String img2 = "D:/Sara/redroses2.jpg";
+		String img1 = "C:/Sara/images/redroses.jpg";
+		String img2 = "C:/Sara/images/redroses2.jpg";
 		Mat mat1 = Highgui.imread(img1);
 		Mat mat2 = Highgui.imread(img2);
 		
-		
 		//detects features, stores them in MatOfKeyPoint
-		FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.SURF); //Keypoints unter drawKeypoints sehen mit SURF besser aus als mit ORB etc.
+		//Keypoints unter drawKeypoints sehen mit SURF besser aus als mit ORB etc.
+		FeatureDetector featureDetector = FeatureDetector.create(FeatureDetector.SURF); 
 
 		MatOfKeyPoint keysImg1 = new MatOfKeyPoint();
 		MatOfKeyPoint keysImg2 = new MatOfKeyPoint();
@@ -42,10 +44,10 @@ public class FeatureDetection {
 		
 		//extracts descriptors for features, stores them in MatOfKeypoint
 		//brauchen wir das schon? oder erst nach dem Clustern der Keypoints?
-		DescriptorExtractor descriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.ORB);
+		DescriptorExtractor descriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.SURF);
 		
-		MatOfKeyPoint descriptorsImg1 = new MatOfKeyPoint();
-		MatOfKeyPoint descriptorsImg2 = new MatOfKeyPoint();
+		Mat descriptorsImg1 = new Mat();
+		Mat descriptorsImg2 = new Mat();
 		
 		descriptorExtractor.compute(mat1, keysImg1, descriptorsImg1);
 		descriptorExtractor.compute(mat2, keysImg2, descriptorsImg2);	
@@ -55,8 +57,8 @@ public class FeatureDetection {
 		//Keypoints mit ORB sind zu wenig und komisch verteilt, WARUM?? 
 		Scalar color = new Scalar(255, 0, 0);
 		Mat outImg = new Mat();
-		Features2d.drawKeypoints(mat1, keysImg1, outImg, color, 0); //statt 0: Features2d.DRAW_RICH_KEYPOINTS oder Features2d.NOT_DRAW_SINGLE_POINTS
-		Highgui.imwrite("D:/Sara/flagsSURF=0.jpg", outImg);
+		Features2d.drawKeypoints(mat2, keysImg1, outImg, color, 0); //statt 0: Features2d.DRAW_RICH_KEYPOINTS oder Features2d.NOT_DRAW_SINGLE_POINTS
+		Highgui.imwrite("C:/Sara/images/flagsSURF=0.jpg", outImg);
 		**/
 		
 		
@@ -67,14 +69,39 @@ public class FeatureDetection {
 	    //TermCriteria criteria = new TermCriteria(TermCriteria.EPS + TermCriteria.MAX_ITER,100,0.1);
 	    //Core.kmeans(mat1, 2, clustered, criteria, 10, Core.KMEANS_PP_CENTERS);
 	    
-	    List<Mat> clus = Cluster.cluster(mat1, 5);
-	    Highgui.imwrite("D:/Sara/clusters5.jpg", clus.get(4));
+	    int i = 0;
+	    int y = 0;
+		List<Mat> clusters1 = Cluster.cluster(mat1, 5); //keysImg1 und keysImg2 klappt nicht
+		List<Mat> clusters2 = Cluster.cluster(mat2, 5);
+		
+		/** generates images of the cluster matrices
+		for(Mat clusteredMat : clusters1) {
+	    	Highgui.imwrite("C:/Sara/images/cluster1_" + i++ + ".jpg", clusteredMat);
+		}
+	    
+	    for(Mat clusteredMat : clusters2) {
+	    	Highgui.imwrite("C:/Sara/images/cluster2_" + y++ + ".jpg", clusteredMat);	
+	    }
+	    **/
+	    
+	    /**
+	    //print cluster matrices
+		//get(y).dump() druckt Matrix-Inhalt aus, 5x 2000x1500
+	    for(int z = 0; z < clusters1.size(); z++) {
+	    	System.out.println(clusters1.get(z)); 
+	    }
+	    
+	    for(int z = 0; z < clusters2.size(); z++) {
+	    	System.out.println(clusters2.get(z)); 
+	    }
+	    **/
+	    
 	    
 
 	    
 		
 		
-		
+		//-------------------------------------------------------------------------------------------
 		
 		/** Matchen noch nicht nötig, erst nur Keypoints erstellen und Clustern
 		//matches the features of two images
