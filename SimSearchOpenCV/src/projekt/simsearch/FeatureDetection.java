@@ -41,9 +41,16 @@ public class FeatureDetection {
 		featureDetector.detect(mat1, keysImg1);
 		featureDetector.detect(mat2, keysImg2);
 		
+		//shows img1 with keypoints
+		//Keypoints mit ORB sind zu wenig und komisch verteilt, WARUM?? 
+		/**
+		Scalar color = new Scalar(255, 0, 0);
+		Mat outImg = new Mat();
+		Features2d.drawKeypoints(mat1, keysImg1, outImg, color, 0); //statt 0: Features2d.DRAW_RICH_KEYPOINTS oder Features2d.NOT_DRAW_SINGLE_POINTS
+		Highgui.imwrite("C:/Sara/images/TRY2.jpg", outImg);
+		**/
 		
-		//extracts descriptors for features, stores them in MatOfKeypoint
-		//brauchen wir das schon? oder erst nach dem Clustern der Keypoints?
+		//extracts descriptors for features, stores them in Mat
 		DescriptorExtractor descriptorExtractor = DescriptorExtractor.create(DescriptorExtractor.SURF);
 		
 		Mat descriptorsImg1 = new Mat();
@@ -51,50 +58,68 @@ public class FeatureDetection {
 		
 		descriptorExtractor.compute(mat1, keysImg1, descriptorsImg1);
 		descriptorExtractor.compute(mat2, keysImg2, descriptorsImg2);	
+		//System.out.println(descriptorsImg1.dump());   //hier 93 descriptors gefunden, also Ausgabe ist 93x64 Matrix
+		
+		
+		//CLUSTERING, kmeans returns the compactness measure, i.e. how good the labeling was done
+		// Compactness(CP) measures the average distance between every pair of data
+		// points in a cluster. If there are multiple clusters, Compactness is the
+		// average of all clusters.
+		// A low value of CP indicates better and more compact clusters.
+		int k = 5;
+		Mat labels = new Mat();
+		TermCriteria criteria = new TermCriteria(TermCriteria.EPS + TermCriteria.MAX_ITER,100,0.1);
+		int attempts = 10;
+		Mat centers = new Mat();		
+		Core.kmeans(descriptorsImg1, k, labels, criteria, attempts, Core.KMEANS_PP_CENTERS, centers);
+		System.out.println(centers.dump());   //gibt k x 64 Matrix zurück
+		
+		//System.out.println(labels.rows()); 
+		//Einträge/Zeilen in labels insgesamt --> 2635, labels have same size as that of test data, sind damit descriptors gemeint?
+		//wie viele verschiedene labels muss es also geben, warum sind es so viele?
+		//k = 2 --> labels = 0 oder 1,
+		//k = 5 --> lables = 0,1,2,3 oder 4
+		//wenn k = 2: bei Änderung von attempts ändert sich auch Reihenfolge von labels
+	  
+	
+		
 		
 		/**
-		//shows img1 with keypoints
-		//Keypoints mit ORB sind zu wenig und komisch verteilt, WARUM?? 
-		Scalar color = new Scalar(255, 0, 0);
-		Mat outImg = new Mat();
-		Features2d.drawKeypoints(mat2, keysImg1, outImg, color, 0); //statt 0: Features2d.DRAW_RICH_KEYPOINTS oder Features2d.NOT_DRAW_SINGLE_POINTS
-		Highgui.imwrite("C:/Sara/images/flagsSURF=0.jpg", outImg);
+		* ab hier unwichtig
 		**/
-		
-		
-		//clustering
-		
-		//funktioniert nicht
-		//Mat clustered = new Mat();
-	    //TermCriteria criteria = new TermCriteria(TermCriteria.EPS + TermCriteria.MAX_ITER,100,0.1);
-	    //Core.kmeans(mat1, 2, clustered, criteria, 10, Core.KMEANS_PP_CENTERS);
-	    
-	    int i = 0;
-	    int y = 0;
+				
+		//aus Klasse "Cluster", gibt {0=1013571, 1=246995, 2=794506, 3=211283, 4=733645}
+		//{0=29861, 1=39980, 2=28539, 3=46867, 4=14753} zurück
+		/**
+		int i = 0;
+	    	int y = 0;
 		List<Mat> clusters1 = Cluster.cluster(mat1, 5); //keysImg1 und keysImg2 klappt nicht
 		List<Mat> clusters2 = Cluster.cluster(mat2, 5);
+		**/
 		
-		/** generates images of the cluster matrices
+		//generates images of the cluster matrices
+		/**
 		for(Mat clusteredMat : clusters1) {
-	    	Highgui.imwrite("C:/Sara/images/cluster1_" + i++ + ".jpg", clusteredMat);
+	    		Highgui.imwrite("C:/Sara/images/cluster1_" + i++ + ".jpg", clusteredMat);
 		}
 	    
-	    for(Mat clusteredMat : clusters2) {
-	    	Highgui.imwrite("C:/Sara/images/cluster2_" + y++ + ".jpg", clusteredMat);	
-	    }
-	    **/
+	    	for(Mat clusteredMat : clusters2) {
+	    		Highgui.imwrite("C:/Sara/images/cluster2_" + y++ + ".jpg", clusteredMat);
+		}	
+	    	**/
 	    
-	    /**
-	    //print cluster matrices
+	    
+	    	/**
+	    	//print cluster matrices
 		//get(y).dump() druckt Matrix-Inhalt aus, 5x 2000x1500
-	    for(int z = 0; z < clusters1.size(); z++) {
-	    	System.out.println(clusters1.get(z)); 
-	    }
+	    	for(int z = 0; z < clusters1.size(); z++) {
+	    		System.out.println(clusters1.get(z)); 
+	   	}
 	    
-	    for(int z = 0; z < clusters2.size(); z++) {
-	    	System.out.println(clusters2.get(z)); 
-	    }
-	    **/
+	    	for(int z = 0; z < clusters2.size(); z++) {
+	    		System.out.println(clusters2.get(z)); 
+	   	}	
+	   	**/
 	    
 	    
 
@@ -103,35 +128,13 @@ public class FeatureDetection {
 		
 		//-------------------------------------------------------------------------------------------
 		
-		/** Matchen noch nicht n�tig, erst nur Keypoints erstellen und Clustern
+		/** Matchen noch nicht nötig, erst nur Keypoints erstellen und Clustern
 		//matches the features of two images
 		DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
 		List<MatOfDMatch> matches = new LinkedList<MatOfDMatch>();
 		matcher.knnMatch(descriptorsImg1, descriptorsImg2, matches, 2);
 		**/
 		
-		
-		
-		
-		
-		/** ALT
-
-		Mat mask1 = new Mat();
-		Mat mask2 = new Mat();
-		Mat maskOut = new Mat();
-		
-		//ORB or BRISK detector
-		ORB detector = ORB.create();
-		//BRISK detector = BRISK.create();
-		detector.detect(mat1, keypoints1, mask1); 
-		detector.detect(mat2, keypoints2, mask2);
-		//draws the matches between two images, creates new image
-		
-		
-		Mat newImg = new Mat();
-		Features2d.drawMatches(mat1, keysImg1, mat2, keysImg2, matofdmatch, newImg);
-		Highgui.imwrite("D:/Sara/matches.jpg", newImg);
-		**/
 	}
 
 }
