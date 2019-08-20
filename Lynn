@@ -1,0 +1,168 @@
+package projekt.simsearch;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.DMatch;
+import org.opencv.core.KeyPoint;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfDMatch;
+import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
+import org.opencv.core.TermCriteria;
+//import org.opencv.features2d.ORB;
+//import org.opencv.features2d.BRISK;
+import org.opencv.features2d.DescriptorMatcher;
+import org.opencv.features2d.Features2d;
+import org.opencv.highgui.HighGui;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.xfeatures2d.SURF;
+
+
+
+
+
+public class FeatureDetection {
+	public static void main(String[] args) {
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+//		System.out.println(System.getProperty("java.library.path"));
+
+		//imports images, converts to matrix
+		String img1 = "/Users/Lynn/Documents/Master/2.Semester/Projekt/102flowers_auswahl/image_06207.jpg"; //Bilder und Quelle angeben
+		String img2 = "/Users/Lynn/Documents/Master/2.Semester/Projekt/102flowers_auswahl/image_06228.jpg";
+		Mat mat1 = Imgcodecs.imread(img1);
+		Mat mat2 = Imgcodecs.imread(img2);
+		
+		//detects features, stores them in MatOfKeyPoint
+		//Keypoints unter drawKeypoints sehen mit SURF besser aus als mit ORB etc.
+		
+        //-- Step 1: Detect the keypoints using SURF Detector
+        double hessianThreshold = 400;
+        int nOctaves = 4, nOctaveLayers = 3;
+        boolean extended = false, upright = false;
+        SURF detector = SURF.create(hessianThreshold, nOctaves, nOctaveLayers, extended, upright);
+       
+        
+        MatOfKeyPoint keysImg1 = new MatOfKeyPoint();
+		MatOfKeyPoint keysImg2 = new MatOfKeyPoint();
+        
+        detector.detect(mat1, keysImg1);
+        detector.detect(mat2, keysImg2);
+        
+        
+        //-- compute descriptors
+        Mat descriptors1 = new Mat();
+        Mat descriptors2 = new Mat();
+        detector.detectAndCompute(mat1, new Mat(), keysImg1, descriptors1);
+        detector.detectAndCompute(mat2, new Mat(), keysImg2, descriptors2);
+	
+        
+        
+        //-- Draw keypoints
+        Features2d.drawKeypoints(mat1, keysImg1, mat1);
+        Features2d.drawKeypoints(mat2, keysImg2, mat2);
+        
+        //-- Show keypoints
+//        HighGui.imshow("SURF Keypoints1", mat1);
+//        HighGui.imshow("SURF Keypoints2", mat2);
+//        HighGui.waitKey(0);
+        
+        String matchingAlgorithmus = "standard";
+//		String matchingAlgorithmus = "knn";
+        
+        switch(matchingAlgorithmus)
+        {
+        case "standard":
+
+            
+        // --Match descriptor vectors with NORM-L2
+        DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE);
+        MatOfDMatch matches = new MatOfDMatch();
+        matcher.match(descriptors1, descriptors2, matches);
+        
+        //--Show matches
+        Mat imageMatches = new Mat();
+        Features2d.drawMatches(mat1, keysImg1, mat2, keysImg2, matches, imageMatches);
+        
+//        HighGui.imshow("Matches", imageMatches);
+//        HighGui.waitKey(0);
+        
+        break;
+        
+        case "knn":
+            //-- Step 2: Matching descriptor vectors with a FLANN based matcher
+            // Since SURF is a floating-point descriptor NORM_L2 is used
+             matcher = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
+             
+             // nochmal mit BRUTEFORCE probieren
+            List<MatOfDMatch> knnMatches = new ArrayList<>();
+            matcher.knnMatch(descriptors1, descriptors2, knnMatches, 2);
+            //-- Filter matches using the Lowe's ratio test
+            float ratioThresh = 0.7f;
+            List<DMatch> listOfGoodMatches = new ArrayList<>();
+            for (int i = 0; i < knnMatches.size(); i++) {
+                if (knnMatches.get(i).rows() > 1) {
+                    DMatch[] matches1 = knnMatches.get(i).toArray();
+                    if (matches1[0].distance < ratioThresh * matches1[1].distance) {
+                        listOfGoodMatches.add(matches1[0]);
+                    }
+                }
+            }
+            MatOfDMatch goodMatches = new MatOfDMatch();
+            goodMatches.fromList(listOfGoodMatches);
+            //-- Draw matches
+            Mat imgMatches = new Mat();
+            Features2d.drawMatches(mat1, keysImg1, mat2, keysImg2, goodMatches, imgMatches, Scalar.all(-1),
+                    Scalar.all(-1), new MatOfByte(), Features2d.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS);
+            //-- Show detected matches
+            HighGui.imshow("Good Matches", imgMatches);
+            HighGui.waitKey(0);
+            System.exit(0);
+            break;
+        
+        }
+        
+        clustering(mat1, mat2, keysImg1, keysImg2, descriptors1, descriptors2); 
+        
+	}	
+	
+	
+	public static Mat clustering(Mat mat1, Mat mat2,  MatOfKeyPoint keysImg1,  MatOfKeyPoint keysImg2, Mat descriptors1, Mat descriptors2)
+	{
+		
+        int k = 20;
+        int attempts = 10;
+		TermCriteria criteria = new TermCriteria(TermCriteria.EPS + TermCriteria.MAX_ITER,100,0.1);
+        
+        
+        Mat labels1 = new Mat(); Mat labels2 = new Mat();
+		Mat centers1 = new Mat(); Mat centers2 = new Mat();		
+		Core.kmeans(descriptors1, k, labels1, criteria, attempts, Core.KMEANS_PP_CENTERS, centers1);
+		Core.kmeans(descriptors2, k, labels2, criteria, attempts, Core.KMEANS_PP_CENTERS, centers2);
+		
+            
+        // --Match descriptor vectors with NORM-L2
+        DescriptorMatcher ClusterMatcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE);
+        MatOfDMatch ClusterMatches = new MatOfDMatch();
+        ClusterMatcher.match(descriptors1, descriptors2, ClusterMatches);
+        ClusterMatcher.match(centers1, centers2, ClusterMatches);
+        
+        //--Show matches
+        Mat ClusterImageMatches = new Mat();
+        Features2d.drawMatches(mat1, keysImg1, mat2, keysImg2, ClusterMatches, ClusterImageMatches);
+        
+        HighGui.imshow("Cluster Matches", ClusterImageMatches);
+        HighGui.waitKey(0);
+        
+        System.out.println(ClusterMatches.dump());
+		
+		return ClusterMatches;
+		
+	}
+
+}
